@@ -1,5 +1,5 @@
 package: myhouse-service-image
-release: 1
+revision: 1
 version: development
 git: myhouse-project/myhouse-service-image
 modules:
