@@ -15,10 +15,10 @@
 
 import base64
  
-from sdk.module.service import Service
+from sdk.python.module.service import Service
 
-import sdk.utils.web
-import sdk.utils.exceptions as exception
+import sdk.python.utils.web
+import sdk.python.utils.exceptions as exception
 
 class Image(Service):
     # What to do when initializing
@@ -44,7 +44,7 @@ class Image(Service):
             password = message.get("password") if message.has("password") else None
             # download the image pointed by the url
             try:
-                data = sdk.utils.web.get(url, username, password, binary=True)
+                data = sdk.python.utils.web.get(url, username, password, binary=True)
             except Exception,e: 
                 self.log_error("unable to connect to "+url+": "+exception.get(e))
                 return
