@@ -1,0 +1,13 @@
+- Webcams:
+  - sensor: examples/image/webcam1
+    size: 4
+    title: Webcam Manhattan
+    type: image
+  - sensor: examples/image/webcam2
+    size: 4
+    title: Webcam Hudson River
+    type: image
+  - sensor: examples/image/webcam3
+    size: 4
+    title: Webcam Times Square
+    type: image
