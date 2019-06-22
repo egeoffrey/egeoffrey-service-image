@@ -1,6 +1,9 @@
 package: myhouse-service-image
-revision: 2
+revision: 3
 version: development
-git: myhouse-project/myhouse-service-image
+github: myhouse-project/myhouse-service-image
+dockerhub: myhouse-project/myhouse-service-image
+description: Retrieve images from a url
+tags: service image webcam
 modules:
   - service/image
