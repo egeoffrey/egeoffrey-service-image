@@ -1,5 +1,5 @@
 package: myhouse-service-image
-revision: 3
+revision: 4
 version: development
 github: myhouse-project/myhouse-service-image
 dockerhub: myhouseproject/myhouse-service-image
