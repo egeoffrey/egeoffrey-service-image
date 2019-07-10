@@ -9,7 +9,7 @@
 ## COMMUNICATION:
 # INBOUND: 
 # - IN: 
-#   required: url
+#   required: url|command
 #   optional: username, password
 # OUTBOUND: 
 
@@ -18,6 +18,7 @@ import base64
 from sdk.python.module.service import Service
 
 import sdk.python.utils.web
+import sdk.python.utils.command
 import sdk.python.utils.exceptions as exception
 
 class Image(Service):
@@ -37,16 +38,26 @@ class Image(Service):
     # What to do when receiving a request for this module
     def on_message(self, message):
         if message.command == "IN":
-            if not self.is_valid_configuration(["url"], message.get_data()): return
             sensor_id = message.args
-            url = message.get("url")
-            username = message.get("username") if message.has("username") else None
-            password = message.get("password") if message.has("password") else None
-            # download the image pointed by the url
-            try:
-                data = sdk.python.utils.web.get(url, username, password, binary=True)
-            except Exception,e: 
-                self.log_error("unable to connect to "+url+": "+exception.get(e))
+            if message.has("url"): 
+                url = message.get("url")
+                username = message.get("username") if message.has("username") else None
+                password = message.get("password") if message.has("password") else None
+                # download the image pointed by the url
+                try:
+                    data = sdk.python.utils.web.get(url, username, password, binary=True)
+                except Exception,e: 
+                    self.log_warning("unable to connect to "+url+": "+exception.get(e))
+                    return
+            elif message.has("command"):   
+                command = message.get("command")
+                try:
+                    data = sdk.python.utils.command.run(command)
+                except Exception,e: 
+                    self.log_error("unable to run command "+command+": "+exception.get(e))
+                    return
+            else:
+                self.log_error(sensor_id+" must have a url or a command configured")
                 return
             # return empty if the data is not binary
             if "<html" in data.lower(): data = ""
