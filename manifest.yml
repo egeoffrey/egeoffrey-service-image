@@ -1,9 +1,33 @@
+manifest_schema: 1
 package: myhouse-service-image
-revision: 5
+revision: 6
 version: development
 github: myhouse-project/myhouse-service-image
 dockerhub: myhouseproject/myhouse-service-image
 description: Retrieve images from a url
 tags: service image webcam
 modules:
-  - service/image
+  - service/image:
+      description: Retrieve images from a url or by running a command
+      service_configuration: 
+        active:
+          - name: url
+            description: Download the image from this URL
+            format: string
+            placeholder: http://domain.com/image.jpg
+            required: false
+          - name: command
+            description: Run a command returning an image
+            format: string
+            placeholder: raspistill -w 640 -h 480 -o -
+            required: false
+          - name: username
+            description: Username if the URL requires basic authentication
+            placeholder: username
+            required: false
+            format: string
+          - name: password
+            description: Password if the URL requires basic authentication
+            required: true
+            format: string
+            placeholder: password
