@@ -1,33 +1,34 @@
-manifest_schema: 1
-package: myhouse-service-image
-revision: 6
-version: development
-github: myhouse-project/myhouse-service-image
-dockerhub: myhouseproject/myhouse-service-image
+branch: development
 description: Retrieve images from a url
-tags: service image webcam
+dockerhub: myhouseproject/myhouse-service-image
+github: myhouse-project/myhouse-service-image
+manifest_schema: 2
 modules:
-  - service/image:
-      description: Retrieve images from a url or by running a command
-      service_configuration: 
-        active:
-          - name: url
-            description: Download the image from this URL
-            format: string
-            placeholder: http://domain.com/image.jpg
-            required: false
-          - name: command
-            description: Run a command returning an image
-            format: string
-            placeholder: raspistill -w 640 -h 480 -o -
-            required: false
-          - name: username
-            description: Username if the URL requires basic authentication
-            placeholder: username
-            required: false
-            format: string
-          - name: password
-            description: Password if the URL requires basic authentication
-            required: true
-            format: string
-            placeholder: password
+- service/image:
+    description: Retrieve images from a url or by running a command
+    service_configuration:
+      active:
+      - description: Download the image from this URL
+        format: string
+        name: url
+        placeholder: http://domain.com/image.jpg
+        required: false
+      - description: Run a command returning an image
+        format: string
+        name: command
+        placeholder: raspistill -w 640 -h 480 -o -
+        required: false
+      - description: Username if the URL requires basic authentication
+        format: string
+        name: username
+        placeholder: username
+        required: false
+      - description: Password if the URL requires basic authentication
+        format: string
+        name: password
+        placeholder: password
+        required: true
+package: myhouse-service-image
+revision: 7
+tags: service image webcam
+version: 1.0
