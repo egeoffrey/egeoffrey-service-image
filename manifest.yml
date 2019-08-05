@@ -2,6 +2,7 @@ branch: development
 description: Retrieve images from a url
 dockerhub: myhouseproject/myhouse-service-image
 github: myhouse-project/myhouse-service-image
+icon: image
 manifest_schema: 2
 modules:
 - service/image:
@@ -29,6 +30,6 @@ modules:
         placeholder: password
         required: true
 package: myhouse-service-image
-revision: 7
+revision: 8
 tags: service image webcam
 version: 1.0
