@@ -30,6 +30,6 @@ modules:
         placeholder: password
         required: true
 package: egeoffrey-service-image
-revision: 9
+revision: 10
 tags: service image webcam
 version: 1.0
