@@ -5,7 +5,7 @@ retain: single_value
 service:
   configuration:
     url: http://wirednewyork.com/images/webcams/wired-new-york-webcam1.jpg
-  mode: active
+  mode: pull
   name: image
   schedule:
     minutes: 10

@@ -5,7 +5,7 @@ retain: single_value
 service:
   configuration:
     url: http://www.mylivestreams.com/images/camera/large_10724.jpg
-  mode: active
+  mode: pull
   name: image
   schedule:
     minutes: 10

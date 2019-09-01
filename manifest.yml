@@ -8,7 +8,7 @@ modules:
 - service/image:
     description: Retrieve images from a url or by running a command
     service_configuration:
-      active:
+      pull:
       - description: Download the image from this URL
         format: string
         name: url
@@ -30,6 +30,6 @@ modules:
         placeholder: password
         required: true
 package: egeoffrey-service-image
-revision: 10
+revision: 11
 tags: service image webcam
 version: 1.0
