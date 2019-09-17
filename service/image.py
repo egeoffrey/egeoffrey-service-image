@@ -47,15 +47,15 @@ class Image(Service):
                 try:
                     data = sdk.python.utils.web.get(url, username, password, binary=True)
                 except Exception,e: 
-                    self.log_warning("unable to connect to "+url+": "+exception.get(e))
-                    return
+                    self.log_debug("unable to connect to "+url+": "+exception.get(e))
+                    data = ""
             elif message.has("command"):   
                 command = message.get("command")
                 try:
                     data = sdk.python.utils.command.run(command)
                 except Exception,e: 
                     self.log_error("unable to run command "+command+": "+exception.get(e))
-                    return
+                    data = ""
             else:
                 self.log_error(sensor_id+" must have a url or a command configured")
                 return
