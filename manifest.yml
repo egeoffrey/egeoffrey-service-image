@@ -1,4 +1,4 @@
-branch: development
+branch: master
 description: Retrieve images from a url
 dockerhub: egeoffrey/egeoffrey-service-image
 github: egeoffrey/egeoffrey-service-image
@@ -30,6 +30,6 @@ modules:
         placeholder: password
         required: true
 package: egeoffrey-service-image
-revision: 13
+revision: 14
 tags: service image webcam
 version: 1.0
