@@ -4,7 +4,7 @@ This is an eGeoffrey service package.
 
 ## Description
 
-Retrieve images from a url.
+Retrieve images from a url or command, perform motion detection and object recognition.
 
 ## Install
 
@@ -22,12 +22,18 @@ For each module, if requiring a configuration file to start, its settings will b
 
 To configure each module included in this package, once started, click on the *'Edit Configuration'* button on the *'eGeoffrey Admin'* / *'Modules'* page of your eGeoffrey instance.
 - **service/image**: retrieve images from a url or by running a command
+  - Module configuration:
+    - *clarifai_api_key*: clarifai API Key (https://portal.clarifai.com/signup) for object detection
   - Service configuration:
     - Mode 'pull':
       - *url*: download the image from this URL (e.g. http://domain.com/image.jpg)
-      - *command*: run a command returning an image (e.g. raspistill -w 640 -h 480 -o -)
       - *username*: username if the URL requires basic authentication (e.g. username)
-      - *password**: password if the URL requires basic authentication (e.g. password)
+      - *password*: password if the URL requires basic authentication (e.g. password)
+      - *command*: run a command returning an image (e.g. raspistill -w 640 -h 480 -o -)
+      - *detect_motion_threshold*: ignore the image unless a motion (higher than this %) is detected (e.g. 20)
+      - *detect_people_threshold*: ignore the image unless at least this number of people are detected in the image (e.g. 1)
+      - *detect_object_name*: ignore the image unless this object is detected in the image (e.g. people)
+      - *detect_object_threshold*: ignore the image unless the detected object has a confidence level higher than this percentage (e.g. 98)
 
 ## Contribute
 
@@ -43,7 +49,7 @@ If you are a user willing to contribute to somebody's else package, submit your 
 
 Building is required only if you are the author of the package. To build a Docker image and automatically push it to [Docker Hub](https://hub.docker.com/r/egeoffrey/egeoffrey-service-image), run the following command from within this package's directory:
 ```
-egeoffrey-cli build egeoffrey-service-image <amd64|arm>
+egeoffrey-cli build egeoffrey-service-image
 ```
 
 ## Uninstall
@@ -62,4 +68,4 @@ service image webcam
 
 ## Version
 
-The version of this egeoffrey-service-image is 1.0-14 on the master branch.
+The version of this egeoffrey-service-image is 1.1-1 on the development branch.
