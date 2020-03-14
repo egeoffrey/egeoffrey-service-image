@@ -14,6 +14,26 @@ modules:
       format: string
       name: clarifai_api_key
       required: false
+    - description: If receiving images through MQTT, hostname to connect to
+      format: string
+      name: mqtt_hostname
+      placeholder: egeoffrey-gateway
+      required: false
+    - description: The port of the MQTT broker
+      format: int
+      name: mqtt_port
+      placeholder: 1883
+      required: false
+    - description: The username for authenticating against the mqtt broker
+      format: string
+      name: mqtt_username
+      placeholder: username
+      required: false
+    - description: The password for authenticating against the mqtt broker
+      format: password
+      name: mqtt_password
+      placeholder: password
+      required: false
     service_configuration:
       pull:
       - description: Download the image from this URL
@@ -58,7 +78,35 @@ modules:
         name: detect_object_threshold
         placeholder: 98
         required: false
+      push:
+      - description: The MQTT topic to subscribe to
+        format: string
+        name: topic
+        placeholder: topic/webcam1
+        required: false
+      - description: Ignore the image unless a motion (higher than this %) is detected
+        format: int
+        name: detect_motion_threshold
+        placeholder: 20
+        required: false
+      - description: Ignore the image unless at least this number of people are detected
+          in the image
+        format: int
+        name: detect_people_threshold
+        placeholder: 1
+        required: false
+      - description: Ignore the image unless this object is detected in the image
+        format: string
+        name: detect_object_name
+        placeholder: people
+        required: false
+      - description: Ignore the image unless the detected object has a confidence
+          level higher than this percentage
+        format: int
+        name: detect_object_threshold
+        placeholder: 98
+        required: false
 package: egeoffrey-service-image
-revision: 1
+revision: 2
 tags: service image webcam
 version: 1.1

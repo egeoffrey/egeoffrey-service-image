@@ -24,7 +24,17 @@ To configure each module included in this package, once started, click on the *'
 - **service/image**: retrieve images from a url or by running a command
   - Module configuration:
     - *clarifai_api_key*: clarifai API Key (https://portal.clarifai.com/signup) for object detection
+    - *mqtt_hostname*: if receiving images through MQTT, hostname to connect to (e.g. egeoffrey-gateway)
+    - *mqtt_port*: the port of the MQTT broker (e.g. 1883)
+    - *mqtt_username*: the username for authenticating against the mqtt broker (e.g. username)
+    - *mqtt_password*: the password for authenticating against the mqtt broker (e.g. password)
   - Service configuration:
+    - Mode 'push':
+      - *topic*: the MQTT topic to subscribe to (e.g. topic/webcam1)
+      - *detect_motion_threshold*: ignore the image unless a motion (higher than this %) is detected (e.g. 20)
+      - *detect_people_threshold*: ignore the image unless at least this number of people are detected in the image (e.g. 1)
+      - *detect_object_name*: ignore the image unless this object is detected in the image (e.g. people)
+      - *detect_object_threshold*: ignore the image unless the detected object has a confidence level higher than this percentage (e.g. 98)
     - Mode 'pull':
       - *url*: download the image from this URL (e.g. http://domain.com/image.jpg)
       - *username*: username if the URL requires basic authentication (e.g. username)
@@ -68,4 +78,4 @@ service image webcam
 
 ## Version
 
-The version of this egeoffrey-service-image is 1.1-1 on the development branch.
+The version of this egeoffrey-service-image is 1.1-2 on the development branch.

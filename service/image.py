@@ -10,18 +10,21 @@
 # INBOUND: 
 # - IN: 
 #   required: url|command
-#   optional: username, password, detect_motion_threshold, detect_object, detect_object_threshold
+#   optional: username, password, detect_motion_threshold, detect_people, detect_object_name, detect_object_threshold
 # OUTBOUND: 
 
 import base64
 import cv2
 import numpy
 import imutils
+import urllib2
+import json
 from imutils.object_detection import non_max_suppression
 from imutils import paths
-from clarifai.rest import ClarifaiApp
+import paho.mqtt.client as mqtt
  
 from sdk.python.module.service import Service
+from sdk.python.module.helpers.message import Message
 
 import sdk.python.utils.web
 import sdk.python.utils.command
@@ -44,8 +47,13 @@ class Image(Service):
         self.detect_people_padding = 8
         self.detect_people_scale = 1.05
         # object detection settings
-        self.detect_object_app = None
-        self.detect_object_model = None
+        self.detect_object_url = "https://api.clarifai.com/v2/models/aaa03c23b3724a16a56b629203edc62c/outputs"
+        # track the topics subscribed
+        self.topics_to_subscribe = []
+        self.topics_subscribed = []
+        # mqtt object
+        self.mqtt_client = mqtt.Client()
+        self.mqtt_connected = False
         # configuration
         self.config = {}
         # require configuration before starting up
@@ -54,11 +62,78 @@ class Image(Service):
     
     # What to do when running    
     def on_start(self):
-        pass
+        # if requested to connect to mqtt broker for receiving images, connect to it
+        if "mqtt_hostname" in self.config and "mqtt_port" in self.config:
+            # receive callback when conneting
+            def on_connect(client, userdata, flags, rc):
+                if rc == 0:
+                    self.log_debug("Connected to the MQTT gateway ("+str(rc)+")")
+                    # subscribe to previously queued topics
+                    for topic in self.topics_to_subscribe:
+                        self.subscribe_topic(topic)
+                    self.topics_to_subscribe = []
+                    self.mqtt_connected = True
+                
+            # receive a callback when receiving a message
+            def on_message(client, userdata, msg):
+                try:
+                    self.log_debug("received mqtt message on "+str(msg.topic))
+                    # find the sensor matching the topic
+                    for sensor_id in self.sensors:
+                        configuration = self.sensors[sensor_id]
+                        # exclude pull sensors
+                        if "topic" not in configuration:
+                            continue
+                        # if the message is for this sensor
+                        if msg.topic == str(configuration["topic"]):
+                            image = msg.payload
+                            self.log_debug("received an image for "+sensor_id)
+                            # analyze the image
+                            image = self.analyze_image(sensor_id, configuration, image)
+                            if image is None:
+                                return
+                            image = base64.b64encode(image)
+                            # prepare the message
+                            message = Message(self)
+                            message.recipient = "controller/hub"
+                            message.command = "IN"
+                            message.args = sensor_id
+                            message.set("value", image)
+                            # send the message to the controller
+                            self.send(message)
+                            break
+                except Exception,e:
+                    self.log_error("Unable to process mqtt message: "+exception.get(e))
+                        
+            # connect to the gateway
+            try: 
+                self.log_info("Connecting to MQTT gateway on "+self.config["mqtt_hostname"]+":"+str(self.config["mqtt_port"]))
+                password = self.config["mqtt_password"] if "mqtt_password" in self.config else ""
+                if "mqtt_username" in self.config: self.mqtt_client.username_pw_set(self.config["mqtt_username"], password=password)
+                self.mqtt_client.connect(self.config["mqtt_hostname"], self.config["mqtt_port"], 60)
+            except Exception,e:
+                self.log_warning("Unable to connect to the MQTT gateway "+self.config["mqtt_hostname"]+":"+str(self.config["mqtt_port"])+": "+exception.get(e))
+                return
+            # set callbacks
+            self.mqtt_client.on_connect = on_connect
+            self.mqtt_client.on_message = on_message
+            # start loop (in the background)
+            try: 
+                self.mqtt_client.loop_start()
+            except Exception,e: 
+                self.log_error("Unexpected runtime error: "+exception.get(e))
     
     # What to do when shutting down    
     def on_stop(self):
-        pass
+        if self.mqtt_connected:
+            self.mqtt_client.loop_stop()
+            self.mqtt_client.disconnect()
+            
+    # subscribe to a mqtt topic
+    def subscribe_topic(self, topic):
+        self.log_debug("Subscribing to the MQTT topic "+topic)
+        self.topics_subscribed.append(topic)
+        self.mqtt_client.subscribe(topic)
         
     # return a cv2 object from a binary image
     def import_image(self, data):
@@ -157,8 +232,22 @@ class Image(Service):
 
     # detect objects in an image
     def detect_object(self, image):
-        # identify the objects
-        result = self.detect_object_model.predict_by_bytes(image)
+        # call the remote api
+        headers = { 
+            "Content-Type" : "application/json",
+            "Authorization": "Key "+self.config["clarifai_api_key"]
+        }
+        data = '{ "inputs": [ {"data": {"image": { "base64": "'+base64.b64encode(image)+'" }} } ] }'
+        try:
+            request = urllib2.Request(self.detect_object_url, data, headers)
+            response = urllib2.urlopen(request).read()
+            result = json.loads(response)
+        except Exception,e: 
+            self.log_warning("unable to perform object detection: "+exception.get(e))
+            return
+        if result["status"]["code"] != 10000:
+            self.log_warning("invalid response for object detection: "+str(result))
+            return
         concepts = result["outputs"][0]["data"]["concepts"]
         objects = {}
         # normalize the results
@@ -166,89 +255,100 @@ class Image(Service):
             objects[concept["name"]] = int(concept["value"]*100)
         return objects
         
+    # analyze an image
+    def analyze_image(self, sensor_id, configuration, image):
+        orig_image = image
+        # perform motion detection if requested
+        if "detect_motion_threshold" in configuration:
+            # return if there is no previous image saved
+            if not self.cache.find(sensor_id):
+                self.log_debug("["+sensor_id+"] ignoring image since there is nothing to compare against yet")
+                # save the current image for later comparison (will be kept in cache for 15 minutes)
+                self.cache.add(sensor_id, image, self.detect_motion_cache_expire)
+                return
+            # retrieve the previous image
+            prev_image = self.cache.get(sensor_id)
+            # do the comparison with the current image
+            result = self.detect_motion([prev_image, image])
+            # save the current image for later comparison (will be kept in cache for 15 minutes)
+            self.cache.add(sensor_id, image, self.detect_motion_cache_expire)
+            # compare the two images
+            if result is None: 
+                self.log_debug("["+sensor_id+"] unable to compare the two images")
+                return
+            difference = result[0]
+            image_modified = result[1]
+            self.log_debug("["+sensor_id+"] motion detected is "+str(difference)+"%, threshold is "+str(configuration["detect_motion_threshold"])+"%")
+            # return if motions is less than the threshold
+            if difference < configuration["detect_motion_threshold"]:
+                return
+            self.log_info("["+sensor_id+"] motion detected: "+str(difference)+"%")
+            image = image_modified
+        # perform people detection if requested
+        if "detect_people_threshold" in configuration:
+            # detect the people
+            result = self.detect_people(image)
+            people = result[0]
+            image_modified = result[1]
+            self.log_debug("["+sensor_id+"] people detected: "+str(people)+", threshold is "+str(configuration["detect_people_threshold"]))
+            # return if people are not detected
+            if people < configuration["detect_people_threshold"]:
+                return
+            self.log_info("["+sensor_id+"] people detected: "+str(people))
+            image = image_modified
+        # perform object detection if requested
+        if "detect_object_name" in configuration and "clarifai_api_key" in self.config:
+            # detect the objects
+            objects = self.detect_object(orig_image)
+            if objects is not None:
+                self.log_debug("["+sensor_id+"] objects detected: "+str(objects))
+                # check if the object has been found
+                if configuration["detect_object_name"] not in objects:
+                    return
+                # if a threshold is set, return if it is lower than the confidence level
+                if "detect_object_threshold" in configuration and objects[configuration["detect_object_name"]] < configuration["detect_object_threshold"]:
+                    return
+                self.log_info("["+sensor_id+"] object '"+configuration["detect_object_name"]+"' detected with confidence "+str(objects[configuration["detect_object_name"]])+"%")
+        return image
+        
     # What to do when receiving a request for this module
     def on_message(self, message):
         if message.command == "IN":
             sensor_id = message.args
-            # retrieve the image
+            # retrieve the image from a URL
             if message.has("url"): 
                 url = message.get("url")
                 username = message.get("username") if message.has("username") else None
                 password = message.get("password") if message.has("password") else None
                 # download the image pointed by the url
                 try:
-                    data = sdk.python.utils.web.get(url, username, password, binary=True)
+                    image = sdk.python.utils.web.get(url, username, password, binary=True)
                 except Exception,e: 
                     self.log_debug("unable to connect to "+url+": "+exception.get(e))
-                    data = ""
+                    image = ""
+            # retrieve the image by running a command
             elif message.has("command"):
                 command = message.get("command")
                 try:
-                    data = sdk.python.utils.command.run(command)
+                    image = sdk.python.utils.command.run(command)
                 except Exception,e: 
                     self.log_error("unable to run command "+command+": "+exception.get(e))
-                    data = ""
+                    image = ""
             else:
                 self.log_error(sensor_id+" must have a url or a command configured")
                 return
-            # return empty if the data is not binary
-            if "<html" in data.lower(): data = ""
-            if data == "": data = self.image_unavailable
-            orig_data = data
-            # perform motion detection if requested
-            if message.has("detect_motion_threshold"):
-                # return if there is no previous image saved
-                if not self.cache.find(sensor_id):
-                    self.log_debug("["+sensor_id+"] ignoring image since there is nothing to compare against yet")
-                    # save the current image for later comparison (will be kept in cache for 15 minutes)
-                    self.cache.add(sensor_id, data, self.detect_motion_cache_expire)
-                    return
-                # retrieve the previous image
-                prev_data = self.cache.get(sensor_id)
-                # do the comparison with the current image
-                result = self.detect_motion([prev_data, data])
-                # save the current image for later comparison (will be kept in cache for 15 minutes)
-                self.cache.add(sensor_id, data, self.detect_motion_cache_expire)
-                # compare the two images
-                if result is None: 
-                    self.log_debug("["+sensor_id+"] unable to compare the two images")
-                    return
-                difference = result[0]
-                image = result[1]
-                self.log_debug("["+sensor_id+"] motion detected is "+str(difference)+"%, threshold is "+str(message.get("detect_motion_threshold"))+"%")
-                # return if motions is less than the threshold
-                if difference < message.get("detect_motion_threshold"): 
-                    return
-                self.log_info("["+sensor_id+"] motion detected: "+str(difference)+"%")
-                data = image
-            # perform people detection if requested
-            if message.has("detect_people_threshold"):
-                # detect the people
-                result = self.detect_people(data)
-                people = result[0]
-                image = result[1]
-                self.log_debug("["+sensor_id+"] people detected: "+str(people)+", threshold is "+str(message.get("detect_people_threshold")))
-                # return if people are not detected
-                if people < message.get("detect_people_threshold"):
-                    return
-                self.log_info("["+sensor_id+"] people detected: "+str(people))
-                data = image
-            # perform object detection if requested
-            if message.has("detect_object_name") and self.detect_object_app is not None:
-                # detect the objects
-                objects = self.detect_object(orig_data)
-                self.log_debug("["+sensor_id+"] objects detected: "+str(objects))
-                # check if the object has been found
-                if message.get("detect_object_name") not in objects:
-                    return
-                # if a threshold is set, return if it is lower than the confidence level
-                if message.has("detect_object_threshold") and objects[message.get("detect_object_name")] < message.get("detect_object_threshold"):
-                    return
-                self.log_info("["+sensor_id+"] object '"+message.get("detect_object_name")+"' detected with confidence "+str(objects[message.get("detect_object_name")])+"%")
+            # return a image not available picture if the image is not valid
+            if "<html" in image.lower(): image = ""
+            if image == "": image = self.image_unavailable
+            configuration = message.get_data()
+            # analyze the image
+            image = self.analyze_image(sensor_id, configuration, image)
+            if image is None:
+                return
             # reply to the requesting module 
-            data = base64.b64encode(data)
+            image = base64.b64encode(image)
             message.reply()
-            message.set("value", data)
+            message.set("value", image)
             # send the response back
             self.send(message)
 
@@ -259,16 +359,17 @@ class Image(Service):
             if message.config_schema != self.config_schema: 
                 return False
             self.config = message.get_data()
-            # initialize the detect object object
-            if "clarifai_api_key" in self.config and self.config["clarifai_api_key"] is not None:
-                try:
-                    self.detect_object_app = ClarifaiApp(api_key=self.config["clarifai_api_key"])
-                    self.detect_object_model = self.detect_object_app.public_models.general_model
-                except Exception,e: 
-                    self.log_error("unable to initialize detect object app: "+exception.get(e))
         # register/unregister the sensor
         if message.args.startswith("sensors/"):
             if message.is_null: 
                 sensor_id = self.unregister_sensor(message)
             else: 
                 sensor_id = self.register_sensor(message)
+                if sensor_id is not None:
+                    if message.get("service")["mode"] == "push":
+                        # subscribe to the topic if connected, otherwise queue the request
+                        configuration = self.sensors[sensor_id]
+                        if self.mqtt_connected: 
+                            self.subscribe_topic(configuration["topic"])
+                        else: 
+                            self.topics_to_subscribe.append(configuration["topic"])
