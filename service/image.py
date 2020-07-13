@@ -339,7 +339,7 @@ class Image(Service):
                 return
             # return a image not available picture if the image is not valid
             if "<html" in image.lower(): image = ""
-            if image == "": image = self.image_unavailable
+            if image == "": image = base64.b64decode(self.image_unavailable)
             configuration = message.get_data()
             # analyze the image
             image = self.analyze_image(sensor_id, configuration, image)
