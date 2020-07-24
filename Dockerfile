@@ -8,7 +8,7 @@ FROM egeoffrey/egeoffrey-sdk-raspbian:${SDK_VERSION}-${ARCHITECTURE}
 
 ### install module's dependencies
 RUN apt-get update && apt-get install -y python-opencv && apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN pip install --upgrade setuptools && pip install imutils
+RUN pip install --upgrade setuptools==46.0.0 && pip install imutils
 
 ### copy files into the image
 COPY . $WORKDIR
