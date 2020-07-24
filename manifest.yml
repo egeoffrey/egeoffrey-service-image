@@ -107,6 +107,6 @@ modules:
         placeholder: 98
         required: false
 package: egeoffrey-service-image
-revision: 4
+revision: 5
 tags: service image webcam
 version: 1.1
