@@ -78,4 +78,4 @@ service image webcam
 
 ## Version
 
-The version of this egeoffrey-service-image is 1.2-1 on the master branch.
+The version of this egeoffrey-service-image is 1.2-2 on the master branch.
